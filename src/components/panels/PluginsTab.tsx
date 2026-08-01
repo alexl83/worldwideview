@@ -204,6 +204,15 @@ export function PluginsTab() {
 
     const handleDisable = async (pluginId: string) => {
         setRemoving(pluginId);
+        const res = await fetch("/api/marketplace/disable", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pluginId }),
+        });
+        if (!res.ok) {
+            setRemoving(null);
+            return;
+        }
         setPluginDisabled(pluginId, true);
         pluginManager.disablePlugin(pluginId);
         const state = useStore.getState();
@@ -220,6 +229,15 @@ export function PluginsTab() {
 
     const handleEnable = async (pluginId: string) => {
         setRemoving(pluginId);
+        const res = await fetch("/api/marketplace/enable", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pluginId }),
+        });
+        if (!res.ok) {
+            setRemoving(null);
+            return;
+        }
         setPluginDisabled(pluginId, false);
         setNeedsReload(false);
 

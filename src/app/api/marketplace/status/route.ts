@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma as db } from "@/lib/db";
+import { getInstalledPlugins } from "@/lib/marketplace/repository";
+import { isPluginInstallEnabled } from "@/core/edition";
 
 export async function GET() {
     try {
@@ -8,18 +10,15 @@ export async function GET() {
             select: { createdAt: true, updatedAt: true },
         });
 
-        if (!cred) {
-            return NextResponse.json({
-                connected: false,
-                encryptionMasterKeyConfigured: !!process.env.ENCRYPTION_MASTER_KEY,
-            });
-        }
+        const plugins = await getInstalledPlugins();
 
         return NextResponse.json({
-            connected: true,
-            connectedAt: cred.createdAt.toISOString(),
-            lastUpdated: cred.updatedAt.toISOString(),
+            connected: !!cred,
+            connectedAt: cred?.createdAt.toISOString(),
+            lastUpdated: cred?.updatedAt.toISOString(),
             encryptionMasterKeyConfigured: !!process.env.ENCRYPTION_MASTER_KEY,
+            plugins,
+            canManagePlugins: isPluginInstallEnabled,
         });
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
