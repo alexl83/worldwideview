@@ -47,6 +47,7 @@ import { registerGeocodingTools } from "./geocodingTools";
 import { registerFavoritesTools } from "./favoritesTools";
 import { registerFilterTools } from "./filterTools";
 import { registerDiscoveryTools } from "./discoveryTools";
+import { readGlobeState } from "@/lib/globeStateStore";
 
 // ---------------------------------------------------------------------------
 // Route segment config (TRANS-03)
@@ -105,9 +106,10 @@ type McpServer = import("@modelcontextprotocol/sdk/server/mcp.js").McpServer;
 async function registerPluginTools(
     server: McpServer,
     userId: string,
+    pinnedSessionId?: string,
 ): Promise<void> {
     // Resolve the active session for this user (ZSET globe:sessions)
-    const sessionId = await resolveActiveSessionId(userId);
+    const sessionId = pinnedSessionId ?? await resolveActiveSessionId(userId);
 
     // Delegate to the dispatch registrar (pluginToolDispatch.ts).
     await registerPluginToolDispatch(server, { userId, sessionId });
@@ -144,6 +146,21 @@ async function handleMcpRequest(request: Request): Promise<Response> {
         return unauthorizedResponse();
     }
 
+    const requestedSessionId = new URL(request.url).searchParams.get("sessionId") ?? undefined;
+    if (requestedSessionId) {
+        const validUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+            .test(requestedSessionId);
+        const snapshot = validUuid
+            ? await readGlobeState(authResult.userId, requestedSessionId)
+            : null;
+        if (!snapshot) {
+            return new Response(JSON.stringify({ error: "requested globe session is not active" }), {
+                status: 409,
+                headers: { "Content-Type": "application/json" },
+            });
+        }
+    }
+
     // ------------------------------------------------------------------
     // Gate 3: Redis per-key rate limit (SEC-02).
     // 120 req / 60s per authenticated key, complementing the coarse IP
@@ -170,14 +187,14 @@ async function handleMcpRequest(request: Request): Promise<Response> {
     // Phase 21: dynamic per-session plugin tools (below)
     //   Phase 22: registerGeocodingTools, registerFavoritesTools
     //   Phase 23: registerFilterTools (set_filter, clear_filter, get_plugin_filters)
-    registerGlobeResources(server, { userId: authResult.userId });
+    registerGlobeResources(server, { userId: authResult.userId, pinnedSessionId: requestedSessionId });
     registerDataQueryTools(server, { userId: authResult.userId });
-    registerGlobeCommandTools(server, { userId: authResult.userId });
-    registerGeocodingTools(server, { userId: authResult.userId });
+    registerGlobeCommandTools(server, { userId: authResult.userId, pinnedSessionId: requestedSessionId });
+    registerGeocodingTools(server, { userId: authResult.userId, pinnedSessionId: requestedSessionId });
     registerFavoritesTools(server, { userId: authResult.userId });
-    registerFilterTools(server, { userId: authResult.userId });
+    registerFilterTools(server, { userId: authResult.userId, pinnedSessionId: requestedSessionId });
     // Phase 29: discovery tools (list_available_plugins, get_globe_context, investigate_area)
-    registerDiscoveryTools(server, { userId: authResult.userId });
+    registerDiscoveryTools(server, { userId: authResult.userId, pinnedSessionId: requestedSessionId });
     // Phase 26: orientation prompts (INST-03, INST-04)
     await registerOrientationPrompts(server, { userId: authResult.userId });
 
@@ -193,7 +210,7 @@ async function handleMcpRequest(request: Request): Promise<Response> {
     // loaded the relevant plugin and published its catalog via the catalog
     // endpoint. Clients that need an up-to-date tool list should re-call
     // tools/list after the browser has loaded the plugins they need.
-    await registerPluginTools(server, authResult.userId);
+    await registerPluginTools(server, authResult.userId, requestedSessionId);
 
     const transport = new WebStandardStreamableHTTPServerTransport({
         sessionIdGenerator: undefined, // stateless mode (D-17-04)

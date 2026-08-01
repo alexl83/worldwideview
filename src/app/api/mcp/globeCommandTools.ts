@@ -48,7 +48,9 @@ const NO_SESSION_RESULT = textResult("no active globe session to control");
 async function resolveSession(
     userId: string,
     argSessionId: string | undefined,
+    pinnedSessionId?: string,
 ): Promise<string | null> {
+    if (pinnedSessionId) return pinnedSessionId;
     if (argSessionId !== undefined && argSessionId !== "") {
         return argSessionId;
     }
@@ -61,9 +63,9 @@ async function resolveSession(
 
 export function registerGlobeCommandTools(
     server: McpServer,
-    ctx: { userId: string },
+    ctx: { userId: string; pinnedSessionId?: string },
 ): void {
-    const { userId } = ctx;
+    const { userId, pinnedSessionId } = ctx;
 
     // TOOL-01: pan_globe
     server.registerTool(
@@ -88,7 +90,7 @@ export function registerGlobeCommandTools(
         },
         async (args) => {
             try {
-                const sessionId = await resolveSession(userId, args.sessionId);
+                const sessionId = await resolveSession(userId, args.sessionId, pinnedSessionId);
                 if (sessionId === null) return NO_SESSION_RESULT;
 
                 const cmd: GlobeCommand = {
@@ -133,7 +135,7 @@ export function registerGlobeCommandTools(
         },
         async (args) => {
             try {
-                const sessionId = await resolveSession(userId, args.sessionId);
+                const sessionId = await resolveSession(userId, args.sessionId, pinnedSessionId);
                 if (sessionId === null) return NO_SESSION_RESULT;
 
                 let resolvedLat = args.lat;
@@ -196,7 +198,7 @@ export function registerGlobeCommandTools(
         },
         async (args) => {
             try {
-                const sessionId = await resolveSession(userId, args.sessionId);
+                const sessionId = await resolveSession(userId, args.sessionId, pinnedSessionId);
                 if (sessionId === null) return NO_SESSION_RESULT;
 
                 // Check whether the layerId matches a known streaming plugin.
@@ -244,7 +246,7 @@ export function registerGlobeCommandTools(
         },
         async (args) => {
             try {
-                const sessionId = await resolveSession(userId, args.sessionId);
+                const sessionId = await resolveSession(userId, args.sessionId, pinnedSessionId);
                 if (sessionId === null) return NO_SESSION_RESULT;
 
                 const cmd: GlobeCommand = {

@@ -43,6 +43,7 @@ import { MobileHudBar } from "./MobileHudBar";
 import { AgentBusSubscriber } from "./AgentBusSubscriber";
 import { DataBusSubscriber } from "./DataBusSubscriber";
 import { Header } from "./Header";
+import { LocalAgentChat } from "./LocalAgentChat";
 
 const GlobeView = dynamic(() => import("@/core/globe/GlobeView"), {
     ssr: false,
@@ -195,6 +196,7 @@ export function AppShell() {
         <EntityInfoCard />
         <BottomPanelManager />
         <FloatingVideoManager />
+        <LocalAgentChat />
         {needsReload && <ReloadToast />}
         <ErrorToast />
         <FeedbackDialog />

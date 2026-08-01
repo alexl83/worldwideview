@@ -55,9 +55,9 @@ const INVESTIGATE_AREA_CAP = 200;
 
 export function registerDiscoveryTools(
     server: McpServer,
-    ctx: { userId: string },
+    ctx: { userId: string; pinnedSessionId?: string },
 ): void {
-    const { userId } = ctx;
+    const { userId, pinnedSessionId } = ctx;
 
     // ------------------------------------------------------------------
     // TOOL-01: list_available_plugins
@@ -101,7 +101,7 @@ export function registerDiscoveryTools(
         },
         async () => {
             try {
-                const payload = await composeGlobeContext(userId);
+                const payload = await composeGlobeContext(userId, pinnedSessionId);
                 return textResult(payload);
             } catch (err) {
                 console.error("[discoveryTools] get_globe_context failed:", err);
@@ -187,7 +187,7 @@ export function registerDiscoveryTools(
                 }
 
                 // Step 4: Pan camera when a session is active.
-                const sessionId = await resolveActiveSessionId(userId);
+                const sessionId = pinnedSessionId ?? await resolveActiveSessionId(userId);
                 const sessionPresent = sessionId !== null;
                 if (sessionId !== null) {
                     const cmd: GlobeCommand = {

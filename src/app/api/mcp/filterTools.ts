@@ -45,7 +45,9 @@ const NO_SESSION_RESULT = textResult("no active globe session to control");
 async function resolveSession(
     userId: string,
     argSessionId: string | undefined,
+    pinnedSessionId?: string,
 ): Promise<string | null> {
+    if (pinnedSessionId) return pinnedSessionId;
     if (argSessionId !== undefined && argSessionId !== "") {
         return argSessionId;
     }
@@ -58,9 +60,9 @@ async function resolveSession(
 
 export function registerFilterTools(
     server: McpServer,
-    ctx: { userId: string },
+    ctx: { userId: string; pinnedSessionId?: string },
 ): void {
-    const { userId } = ctx;
+    const { userId, pinnedSessionId } = ctx;
 
     // TOOL: set_filter (FILT-01)
     server.registerTool(
@@ -85,7 +87,7 @@ export function registerFilterTools(
         },
         async (args) => {
             try {
-                const sessionId = await resolveSession(userId, args.sessionId);
+                const sessionId = await resolveSession(userId, args.sessionId, pinnedSessionId);
                 if (sessionId === null) return NO_SESSION_RESULT;
 
                 // Validate the pluginId against the live streaming plugin set.
@@ -134,7 +136,7 @@ export function registerFilterTools(
         },
         async (args) => {
             try {
-                const sessionId = await resolveSession(userId, args.sessionId);
+                const sessionId = await resolveSession(userId, args.sessionId, pinnedSessionId);
                 if (sessionId === null) return NO_SESSION_RESULT;
 
                 const cmd: GlobeCommand = {
@@ -171,7 +173,7 @@ export function registerFilterTools(
         },
         async (args) => {
             try {
-                const sessionId = await resolveActiveSessionId(userId);
+                const sessionId = pinnedSessionId ?? await resolveActiveSessionId(userId);
                 if (!sessionId) {
                     return textResult(JSON.stringify({ available: false, reason: "no_session_active" }));
                 }
