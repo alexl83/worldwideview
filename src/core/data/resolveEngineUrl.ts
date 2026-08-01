@@ -20,6 +20,12 @@ function toWsStreamUrl(url: string): string {
 const DEFAULT_ENGINE_URL = toWsStreamUrl(RAW_ENGINE_URL);
 
 function getLocalWsUrl() {
+    // A deployment may expose the local engine through an HTTPS reverse-proxy
+    // path (for example https://host/engine). In that case rebuilding an URL
+    // from window.location.hostname plus port 5000 discards both the scheme
+    // and pathname and points plugins at an unreachable endpoint. An explicit
+    // public engine URL is already the authoritative browser route.
+    if (RAW_ENGINE_URL !== CLOUD_ENGINE_URL) return DEFAULT_ENGINE_URL;
     const port = process.env.NEXT_PUBLIC_WWV_LOCAL_ENGINE_PORT || '5000';
     if (typeof window === "undefined") return `ws://localhost:${port}/stream`;
     return `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.hostname}:${port}/stream`;
