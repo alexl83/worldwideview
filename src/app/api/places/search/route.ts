@@ -31,26 +31,34 @@ export async function GET(request: Request) {
     }
 
     try {
-        // No type restriction — returns addresses, establishments, landmarks, regions, etc.
-        const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
-            input
-        )}&key=${apiKey}`;
-
-        const response = await fetch(url);
+        // Places API (New). The legacy GET endpoint cannot be enabled on new
+        // Google Cloud projects.
+        const response = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Goog-Api-Key": apiKey,
+            },
+            body: JSON.stringify({ input }),
+        });
         const data = await response.json();
 
-        if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
+        if (!response.ok) {
             console.error("Google Places API Error:", data);
             return NextResponse.json({ error: "Failed to fetch predictions" }, { status: 500 });
         }
 
-        const predictions = data.predictions.map((p: any) => ({
-            description: transliterate(p.description ?? ""),
-            placeId: p.place_id,
-            mainText: transliterate(p.structured_formatting?.main_text || p.description),
-            secondaryText: transliterate(p.structured_formatting?.secondary_text || ""),
-            types: p.types,
-        }));
+        const predictions = (data.suggestions ?? []).flatMap((suggestion: any) => {
+            const p = suggestion.placePrediction;
+            if (!p?.placeId) return [];
+            return [{
+                description: transliterate(p.text?.text ?? ""),
+                placeId: p.placeId,
+                mainText: transliterate(p.structuredFormat?.mainText?.text || p.text?.text || ""),
+                secondaryText: transliterate(p.structuredFormat?.secondaryText?.text || ""),
+                types: p.types || [],
+            }];
+        });
 
         const result = { predictions };
         cache.set(cacheKey, { data: result, expiresAt: Date.now() + TTL_MS });
