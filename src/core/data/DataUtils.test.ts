@@ -37,15 +37,19 @@ describe("EngineManifest", () => {
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
-  it("should return null and cache failure if local engine is missing", async () => {
+  it("should return null and retry after a transient local engine failure", async () => {
     (global.fetch as any).mockRejectedValue(new Error("Connection refused"));
 
     const plugins = await fetchLocalEngineManifest();
     expect(plugins).toBeNull();
 
-    // Should not retry fetch
-    await fetchLocalEngineManifest();
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: async () => ({ plugins: ["aviation"] }),
+    });
+    expect(await fetchLocalEngineManifest()).toEqual(["aviation"]);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(localEngineHasPlugin("aviation")).toBe(true);
   });
 });
 

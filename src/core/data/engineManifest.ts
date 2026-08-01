@@ -4,6 +4,7 @@
 
 let localManifest: string[] | null = null;
 let manifestFetched = false;
+const MANIFEST_TIMEOUT_MS = 3_000;
 
 /**
  * Resolve the base URL of the local data engine.
@@ -22,7 +23,9 @@ function getLocalEngineBase() {
 
 /**
  * Fetch the list of available seeders from a local engine.
- * Returns null if no local engine is detected (timeout after 500ms).
+ * Returns null if no local engine is detected. Failed probes are not cached so
+ * a temporarily slow or still-starting engine can be detected on the next
+ * plugin activation.
  *
  * The engine guarantees manifest IDs are already in kebab-case (the seeder's
  * exported `name` field is the canonical plugin ID). No client-side translation
@@ -34,15 +37,19 @@ export async function fetchLocalEngineManifest(): Promise<string[] | null> {
 
   try {
     const controller = new AbortController();
-    // 500ms is more than enough for a localhost connection.
-    const timeout = setTimeout(() => controller.abort(), 500);
+    // The browser may reach the engine over a LAN hostname rather than the
+    // loopback interface. Allow for DNS, Wi-Fi and a cold container.
+    const timeout = setTimeout(() => controller.abort(), MANIFEST_TIMEOUT_MS);
 
     const res = await fetch(`${getLocalEngineBase()}/manifest`, {
       signal: controller.signal,
     });
     clearTimeout(timeout);
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      manifestFetched = false;
+      return null;
+    }
 
     const data = await res.json();
     localManifest = data.plugins || [];
@@ -53,9 +60,8 @@ export async function fetchLocalEngineManifest(): Promise<string[] | null> {
     return localManifest;
   } catch {
     console.log("[EngineManifest] No local engine detected, using cloud.");
-    // We intentionally leave manifestFetched = true here.
-    // This caches the failure so we don't incur this timeout penalty
-    // every single time a plugin is toggled.
+    // Do not permanently cache a transient timeout or startup failure.
+    manifestFetched = false;
     return null;
   }
 }
