@@ -12,6 +12,9 @@ import type { FilterValue } from "@/core/plugins/PluginTypes";
 import { hasLocalSource, resolveLocalSnapshot, getLocalSourceIds } from "./localSources";
 
 export function getEngineUrl(): string {
+    const configuredUrl = process.env.WWV_PLUGIN_DATA_ENGINE_URL
+        || process.env.NEXT_PUBLIC_WWV_PLUGIN_DATA_ENGINE_URL;
+    if (configuredUrl) return configuredUrl.replace(/\/+$/, "");
     const port = process.env.NEXT_PUBLIC_WWV_LOCAL_ENGINE_PORT || '5001';
     return `http://localhost:${port}`;
 }
