@@ -37,7 +37,7 @@ export async function GET(request: Request) {
 
     try {
         const [records, verifiedIds] = await Promise.all([
-            prisma.installedPlugin.findMany(),
+            prisma.installedPlugin.findMany({ where: { enabled: true } }),
             getVerifiedPluginIds(),
         ]);
 
