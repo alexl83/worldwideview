@@ -19,20 +19,24 @@ export function getEngineUrl(): string {
     return `http://localhost:${port}`;
 }
 
-function normalizeEntity(raw: unknown): GeoEntity | null {
+function normalizeEntity(raw: unknown, pluginId: string, index: number): GeoEntity | null {
     if (typeof raw !== "object" || raw === null) return null;
     const e = raw as Record<string, unknown>;
+    const latitude = e.latitude ?? e.lat;
+    const longitude = e.longitude ?? e.lon ?? e.lng;
+    if (typeof latitude !== "number" || typeof longitude !== "number") return null;
+    const fallbackId = `${pluginId}-${index}`;
     return {
-        id: e.id as string,
-        pluginId: e.pluginId as string,
-        latitude: e.latitude as number,
-        longitude: e.longitude as number,
+        id: String(e.id ?? e.noradId ?? fallbackId),
+        pluginId: String(e.pluginId ?? pluginId),
+        latitude,
+        longitude,
         altitude: e.altitude as number | undefined,
         heading: e.heading as number | undefined,
         speed: e.speed as number | undefined,
         timestamp: new Date((e.timestamp as string | Date | undefined) ?? Date.now()),
-        label: e.label as string | undefined,
-        properties: (e.properties as Record<string, unknown>) ?? {},
+        label: (e.label ?? e.name ?? e.location ?? e.region) as string | undefined,
+        properties: (e.properties as Record<string, unknown>) ?? e,
     };
 }
 
@@ -60,9 +64,26 @@ async function fetchEngineSnapshot(safeId: string): Promise<PluginDataSnapshot |
             return null;
         }
         const data: unknown = await res.json();
-        const raw = Array.isArray(data) ? data : ((data as Record<string, unknown>)?.items ?? []) as unknown[];
-        const entities: GeoEntity[] = (raw as unknown[]).reduce<GeoEntity[]>((acc, item) => {
-            const entity = normalizeEntity(item);
+        const payload = Array.isArray(data)
+            ? data
+            : (data as Record<string, unknown>)?.items ?? [];
+        let raw: unknown[];
+        if (Array.isArray(payload)) {
+            raw = payload;
+        } else if (typeof payload === "object" && payload !== null) {
+            const record = payload as Record<string, unknown>;
+            raw = Array.isArray(record.satellites)
+                ? record.satellites
+                : Object.entries(record).map(([id, value]) =>
+                    typeof value === "object" && value !== null
+                        ? { id, ...(value as Record<string, unknown>) }
+                        : value,
+                );
+        } else {
+            raw = [];
+        }
+        const entities: GeoEntity[] = raw.reduce<GeoEntity[]>((acc, item, index) => {
+            const entity = normalizeEntity(item, safeId, index);
             if (entity !== null) acc.push(entity);
             return acc;
         }, []);
