@@ -15,13 +15,22 @@ import {
 /**
  * Pick a WorldWideView entity at a screen position using the Cesium pick API.
  */
+export function extractWwvEntityFromPick(picked: unknown): GeoEntity | null {
+    if (!picked || typeof picked !== "object") return null;
+    const result = picked as {
+        id?: { _wwvEntity?: GeoEntity };
+        primitive?: { id?: { _wwvEntity?: GeoEntity }; _wwvEntity?: GeoEntity };
+    };
+    return result.id?._wwvEntity
+        ?? result.primitive?.id?._wwvEntity
+        ?? result.primitive?._wwvEntity
+        ?? null;
+}
+
 function findEntityAtPosition(viewer: CesiumViewer, position: { x: number; y: number }): GeoEntity | null {
     if (!viewer || viewer.isDestroyed()) return null;
     const picked = viewer.scene.pick(position as Cartesian2);
-    if (defined(picked) && picked.id && picked.id._wwvEntity) {
-        return picked.id._wwvEntity as GeoEntity;
-    }
-    return null;
+    return defined(picked) ? extractWwvEntityFromPick(picked) : null;
 }
 
 /**
