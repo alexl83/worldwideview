@@ -7,11 +7,19 @@ const mockSignOut = vi.fn();
 vi.mock("@/lib/auth-client", () => ({
     authClient: {
         signOut: (...args: unknown[]) => mockSignOut(...args),
+        useSession: () => ({
+            data: null,
+            isPending: false,
+            isRefetching: false,
+            error: null,
+            refetch: vi.fn(),
+        }),
     },
 }));
 
 vi.mock("@/core/edition", () => ({
     isDemo: false,
+    isDemoAdmin: () => false,
     DEMO_ADMIN_ROLE: "admin",
 }));
 
@@ -113,5 +121,23 @@ describe("Header signout", () => {
                 onSuccess: expect.any(Function),
             },
         });
+    });
+});
+
+describe("Header admin badge", () => {
+    it("renders ADMIN badge when the session user is a demo admin", async () => {
+        const mod = await import("@/core/edition");
+        const demoOriginal = mod.isDemo;
+        const adminOriginal = mod.isDemoAdmin;
+        Object.defineProperty(mod, "isDemo", { get: () => true });
+        Object.defineProperty(mod, "isDemoAdmin", { get: () => () => true });
+
+        render(<Header />);
+
+        const badges = screen.queryAllByText("ADMIN");
+        expect(badges.length).toBeGreaterThan(0);
+
+        Object.defineProperty(mod, "isDemo", { get: () => demoOriginal });
+        Object.defineProperty(mod, "isDemoAdmin", { get: () => adminOriginal });
     });
 });
