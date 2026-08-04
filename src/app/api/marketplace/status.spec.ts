@@ -10,6 +10,22 @@ vi.mock("@/lib/db", () => ({
     },
 }));
 
+vi.mock("@/lib/ba-session", () => ({
+    getServerSession: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("@/lib/marketplace/repository", () => ({
+    getInstalledPlugins: vi.fn().mockResolvedValue([]),
+}));
+
+// Pin the demo edition so canManagePlugins actually depends on the session.
+// On local/cloud the route's `!isDemo` short-circuit makes it always true,
+// which would never exercise the session branch.
+vi.mock("@/core/edition", () => ({
+    isDemo: true,
+    isDemoAdmin: vi.fn(() => true),
+}));
+
 describe("Marketplace Status Route", () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -26,6 +42,8 @@ describe("Marketplace Status Route", () => {
 
         expect(data).toEqual({
             connected: false,
+            plugins: [],
+            canManagePlugins: false,
             encryptionMasterKeyConfigured: true,
         });
     });
@@ -74,5 +92,21 @@ describe("Marketplace Status Route", () => {
         const res = await GET();
 
         expect(res.status).toBe(500);
+    });
+
+    it("should return canManagePlugins: true for a demo admin session", async () => {
+        const { prisma } = await import("@/lib/db");
+        const { getServerSession } = await import("@/lib/ba-session");
+        vi.mocked(prisma.marketplaceCredential.findUnique).mockResolvedValue(null);
+        vi.mocked(getServerSession).mockResolvedValue({
+            user: { id: "demo-admin", email: "admin@wwv.local", role: "admin" },
+            session: null,
+        });
+
+        const res = await GET();
+        const data = await res.json();
+
+        expect(data.connected).toBe(false);
+        expect(data.canManagePlugins).toBe(true);
     });
 });
