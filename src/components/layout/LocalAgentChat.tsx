@@ -3,12 +3,17 @@
 import { FormEvent, useState, useSyncExternalStore } from "react";
 import { Bot, Send, X } from "lucide-react";
 import { useSessionId } from "@/core/globe/hooks/useSessionId";
+import { useIsMobile } from "@/core/hooks/useIsMobile";
+import { useStore } from "@/core/state/store";
 import styles from "./LocalAgentChat.module.css";
 
 type Message = { role: "user" | "assistant"; text: string };
 
 export function LocalAgentChat() {
     const sessionId = useSessionId();
+    const isMobile = useIsMobile();
+    const configPanelOpen = useStore((state) => state.configPanelOpen);
+    const openMobilePanel = useStore((state) => state.openMobilePanel);
     const [open, setOpen] = useState(false);
     const hidden = useSyncExternalStore(
         () => () => undefined,
@@ -47,7 +52,17 @@ export function LocalAgentChat() {
     }
 
     if (!open) {
-        return <button className={styles.launcher} onClick={() => setOpen(true)} title="Apri agente locale"><Bot /></button>;
+        const rightSidebarOpen = isMobile ? openMobilePanel === "right" : configPanelOpen;
+        return (
+            <button
+                className={`${styles.launcher} ${rightSidebarOpen ? styles.launcherSidebarOpen : ""}`}
+                onClick={() => setOpen(true)}
+                title="Apri agente locale"
+                aria-label="Apri agente locale"
+            >
+                <Bot />
+            </button>
+        );
     }
 
     return (

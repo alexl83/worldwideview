@@ -1,4 +1,5 @@
-.launcher { position: fixed; right: 24px; bottom: 28px; z-index: 1200; width: 52px; height: 52px; border-radius: 50%; border: 1px solid #f0a000; background: #17130b; color: #ffb000; display: grid; place-items: center; cursor: pointer; box-shadow: 0 8px 30px #000a; }
+.launcher { position: fixed; right: 24px; bottom: 28px; z-index: 1200; width: 52px; height: 52px; border-radius: 50%; border: 1px solid #f0a000; background: #17130b; color: #ffb000; display: grid; place-items: center; cursor: pointer; box-shadow: 0 8px 30px #000a; transition: right var(--duration-slow) var(--ease-smooth); }
+.launcherSidebarOpen { right: calc(var(--ad-strip-inset, 0px) + var(--right-sidebar-width, 320px) + var(--space-xl)); }
 .panel { position: fixed; right: 20px; bottom: 22px; z-index: 1200; width: min(390px, calc(100vw - 24px)); height: min(560px, calc(100vh - 100px)); display: flex; flex-direction: column; border: 1px solid #66501c; border-radius: 12px; background: #10100ff2; color: #eee; box-shadow: 0 14px 50px #000c; backdrop-filter: blur(14px); overflow: hidden; }
 .header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid #403719; }
 .header span { display: flex; gap: 8px; align-items: center; color: #ffb000; font-weight: 650; }
@@ -14,3 +15,6 @@
 .form button { color: #ffb000; padding: 8px; }
 .form button:disabled { color: #666; cursor: default; }
 
+@media (max-width: 767px) {
+  .launcherSidebarOpen { right: calc(min(80vw, 320px) + 12px); }
+}
