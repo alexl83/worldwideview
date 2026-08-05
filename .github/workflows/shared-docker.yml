@@ -18,6 +18,13 @@ on:
       is-preview:
         type: boolean
         default: false
+      include-preview-secrets:
+        type: boolean
+        default: false
+      platforms:
+        type: string
+        default: 'linux/amd64'
+        description: 'Comma-separated build platforms. Default amd64-only; only the public globe app should pass linux/amd64,linux/arm64.'
 
 jobs:
   build:
@@ -54,10 +61,15 @@ jobs:
         with:
           context: .
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ inputs.platforms }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: ${{ inputs.build-args }}
+          build-args: |
+            ${{ inputs.build-args }}
+            ${{ inputs.include-preview-secrets && format('NEXT_PUBLIC_CESIUM_ION_TOKEN={0}', secrets.NEXT_PUBLIC_CESIUM_ION_TOKEN) || '' }}
+            ${{ inputs.include-preview-secrets && format('NEXT_PUBLIC_GOOGLE_MAPS_API_KEY={0}', secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) || '' }}
+            ${{ inputs.include-preview-secrets && format('NEXT_PUBLIC_BING_MAPS_KEY={0}', secrets.NEXT_PUBLIC_BING_MAPS_KEY) || '' }}
+            ${{ inputs.include-preview-secrets && format('NEXT_PUBLIC_SUPABASE_ANON_KEY={0}', secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -80,11 +92,11 @@ jobs:
           sarif_file: trivy-results.sarif
 
       - name: Generate SBOM
-        uses: anchore/syft-action@v0
+        uses: anchore/sbom-action@v0
         with:
           image: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
           format: spdx-json
-          output: sbom.spdx.json
+          output-file: sbom.spdx.json
 
       - name: Sign image with Cosign
         if: ${{ !inputs.is-preview }}
