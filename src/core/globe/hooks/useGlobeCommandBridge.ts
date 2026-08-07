@@ -102,45 +102,62 @@ export function useGlobeCommandBridge(sessionId: string): void {
     useEffect(() => {
         if (!sessionId || isDemo) return;
 
-        const es = new EventSource(
-            `/api/globe/commands/stream?sessionId=${encodeURIComponent(sessionId)}`,
-        );
+        let disposed = false;
+        let source: EventSource | null = null;
+        let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+        let reconnectAttempt = 0;
 
-        es.onmessage = (event: MessageEvent) => {
-            try {
-                const parsed: unknown = JSON.parse(event.data as string);
-                if (
-                    parsed !== null &&
-                    typeof parsed === "object" &&
-                    "commands" in parsed &&
-                    Array.isArray((parsed as { commands: unknown }).commands)
-                ) {
-                    (parsed as { commands: unknown[] }).commands
-                        .filter(isValidGlobeCommand)
-                        .forEach(dispatchCommand);
+        const connect = (): void => {
+            if (disposed) return;
+            const es = new EventSource(
+                `/api/globe/commands/stream?sessionId=${encodeURIComponent(sessionId)}`,
+            );
+            source = es;
+
+            es.onopen = () => {
+                reconnectAttempt = 0;
+            };
+
+            es.onmessage = (event: MessageEvent) => {
+                try {
+                    const parsed: unknown = JSON.parse(event.data as string);
+                    if (
+                        parsed !== null &&
+                        typeof parsed === "object" &&
+                        "commands" in parsed &&
+                        Array.isArray((parsed as { commands: unknown }).commands)
+                    ) {
+                        (parsed as { commands: unknown[] }).commands
+                            .filter(isValidGlobeCommand)
+                            .forEach(dispatchCommand);
+                    }
+                } catch (err) {
+                    console.error("[useGlobeCommandBridge] Failed to parse SSE message:", err);
                 }
-            } catch (err) {
-                console.error("[useGlobeCommandBridge] Failed to parse SSE message:", err);
-            }
+            };
+
+            es.onerror = () => {
+                // Native EventSource reconnects while CONNECTING. A reverse-proxy
+                // or application-container restart can instead leave it CLOSED,
+                // which is terminal unless the application creates a new instance.
+                if (disposed || es.readyState !== EventSource.CLOSED) return;
+                es.close();
+                if (source === es) source = null;
+                const delay = Math.min(1_000 * 2 ** reconnectAttempt, 30_000);
+                reconnectAttempt += 1;
+                console.error(
+                    `[useGlobeCommandBridge] SSE stream closed; reconnecting in ${delay}ms`,
+                );
+                reconnectTimer = setTimeout(connect, delay);
+            };
         };
 
-        es.onerror = () => {
-            // onerror fires on the normal stream close too: the server ends each
-            // stream at MAX_DURATION_MS (~16s), after which EventSource transparently
-            // reconnects (readyState === CONNECTING). Only a terminal failure leaves
-            // readyState === CLOSED -- e.g. a 401 because EventSource authenticates via
-            // the NextAuth session cookie (it cannot send a Bearer header), so an
-            // unauthenticated tab fails permanently rather than reconnecting.
-            if (es.readyState === EventSource.CLOSED) {
-                console.error(
-                    "[useGlobeCommandBridge] SSE stream closed without retry -- " +
-                        "is this tab signed in? EventSource auths via session cookie, not Bearer.",
-                );
-            }
-        };
+        connect();
 
         return () => {
-            es.close();
+            disposed = true;
+            if (reconnectTimer !== null) clearTimeout(reconnectTimer);
+            source?.close();
         };
     }, [sessionId]);
 }

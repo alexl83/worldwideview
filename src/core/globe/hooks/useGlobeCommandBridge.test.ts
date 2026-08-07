@@ -13,6 +13,7 @@
  *   BRIDGE-05  Empty sessionId -> EventSource never created
  *   BRIDGE-06  Unmount -> EventSource.close() called
  *   BRIDGE-07  onerror firing -> no throw
+ *   BRIDGE-08  terminal CLOSED state -> explicit backoff reconnect
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -107,9 +108,15 @@ const mockedUseStore = useStore as unknown as {
 // ---------------------------------------------------------------------------
 
 let mockEs: MockEventSource;
+let mockEventSources: MockEventSource[];
 
 class MockEventSource {
+    static readonly CONNECTING = 0;
+    static readonly OPEN = 1;
+    static readonly CLOSED = 2;
     url: string;
+    readyState = MockEventSource.OPEN;
+    onopen: ((ev: Event) => void) | null = null;
     onmessage: ((ev: MessageEvent) => void) | null = null;
     onerror: ((ev: Event) => void) | null = null;
     close = vi.fn();
@@ -118,6 +125,7 @@ class MockEventSource {
         this.url = url;
         // eslint-disable-next-line @typescript-eslint/no-this-alias
         mockEs = this;
+        mockEventSources.push(this);
     }
 }
 
@@ -127,6 +135,7 @@ class MockEventSource {
 
 beforeEach(() => {
     vi.resetAllMocks();
+    mockEventSources = [];
 
     // Install MockEventSource as the global before each test
     global.EventSource = MockEventSource as unknown as typeof EventSource;
@@ -331,5 +340,43 @@ describe("useGlobeCommandBridge onerror resilience (BRIDGE-07)", () => {
         });
 
         // Reaching here without an unhandled exception is the assertion
+    });
+});
+
+// ---------------------------------------------------------------------------
+// BRIDGE-08: terminal close -> explicit reconnect
+// ---------------------------------------------------------------------------
+
+describe("useGlobeCommandBridge terminal reconnect (BRIDGE-08)", () => {
+    it("creates a fresh EventSource after a terminal CLOSED error", () => {
+        vi.useFakeTimers();
+        const { unmount } = renderHook(() => useGlobeCommandBridge("sess-1"));
+        const first = mockEs;
+        first.readyState = MockEventSource.CLOSED;
+
+        act(() => {
+            first.onerror?.(new Event("error"));
+            vi.advanceTimersByTime(1_000);
+        });
+
+        expect(first.close).toHaveBeenCalledTimes(1);
+        expect(mockEventSources).toHaveLength(2);
+        expect(mockEs).not.toBe(first);
+        expect(mockEs.url).toContain("sessionId=sess-1");
+        unmount();
+        vi.useRealTimers();
+    });
+
+    it("cancels a pending reconnect when the hook unmounts", () => {
+        vi.useFakeTimers();
+        const { unmount } = renderHook(() => useGlobeCommandBridge("sess-1"));
+        mockEs.readyState = MockEventSource.CLOSED;
+        act(() => mockEs.onerror?.(new Event("error")));
+
+        unmount();
+        act(() => vi.advanceTimersByTime(30_000));
+
+        expect(mockEventSources).toHaveLength(1);
+        vi.useRealTimers();
     });
 });
