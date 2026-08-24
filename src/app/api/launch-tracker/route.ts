@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { getEngineUrl } from "@/lib/data-query/service";
 
 export const revalidate = 60;
 
-const FEED_URL = "https://dataenginev2.worldwideview.dev/api/launch-tracker";
+const FEED_URL = `${getEngineUrl()}/api/launch-tracker`;
 
 export async function GET() {
     try {

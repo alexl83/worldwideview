@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { getEngineUrl } from "@/lib/data-query/service";
 
 export const revalidate = 60;
 
-const FEED_URL = "https://dataenginev2.worldwideview.dev/api/marine-buoys";
+const FEED_URL = `${getEngineUrl()}/api/marine-buoys`;
 
 export async function GET() {
     try {
