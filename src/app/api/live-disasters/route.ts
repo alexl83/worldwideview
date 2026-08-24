@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
-import { getEngineUrl } from "@/lib/data-query/service";
 
 export const revalidate = 60;
 
-const FEED_URL = `${getEngineUrl()}/api/live-disasters`;
+// Server-side engine base: env-overridable, default the production engine.
+// Mirrors resolveEngineUrl.ts + hostGlobals.ts env-chain pattern (lint-url allow).
+const ENGINE_BASE = (
+    process.env.WWV_DATA_ENGINE_URL ||
+    process.env.NEXT_PUBLIC_WWV_PLUGIN_DATA_ENGINE_URL ||
+    "https://dataenginev2.worldwideview.dev" // lint-url: allow (default fallback, env-overridable)
+).replace(/^wss:\/\//, "https://").replace(/^ws:\/\//, "http://");
+
+const FEED_URL = `${ENGINE_BASE.replace(/\/$/, "")}/api/live-disasters`;
 
 export async function GET() {
     try {
