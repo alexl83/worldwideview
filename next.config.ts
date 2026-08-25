@@ -25,6 +25,17 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // The authenticated globe is an app shell whose hashed JS assets change
+        // on every deployment. Never let browsers reuse stale HTML that still
+        // points at a previous build; the hashed /_next assets remain cacheable.
+        source: "/",
+        headers: [
+          { key: "Cache-Control", value: "no-store, max-age=0, must-revalidate" },
+          { key: "Pragma", value: "no-cache" },
+          { key: "Expires", value: "0" },
+        ],
+      },
+      {
         // Global security headers for all routes
         source: "/(.*)",
         headers: [

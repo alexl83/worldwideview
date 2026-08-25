@@ -311,6 +311,17 @@ describe("listStreamingPlugins -- source tagging", () => {
 // composeGlobeContext
 // ---------------------------------------------------------------------------
 describe("composeGlobeContext", () => {
+    it("reads only the server-pinned session when one is supplied", async () => {
+        mockGetAllSnapshots.mockResolvedValue([]);
+        mockReadGlobeState.mockResolvedValue(null);
+
+        const ctx = await composeGlobeContext("u1", "pinned-session");
+
+        expect(mockReadActiveSessions).not.toHaveBeenCalled();
+        expect(mockReadGlobeState).toHaveBeenCalledWith("u1", "pinned-session");
+        expect(ctx.sessionCount).toBe(1);
+    });
+
     it("returns sessionCount:0 + camera:null when no sessions", async () => {
         mockReadActiveSessions.mockResolvedValue([]);
         mockGetAllSnapshots.mockResolvedValue([]);

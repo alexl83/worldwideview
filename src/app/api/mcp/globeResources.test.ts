@@ -78,6 +78,26 @@ describe("registerGlobeResources — resource registration", () => {
 // ---------------------------------------------------------------------------
 
 describe("globe://state handler (RSRC-02)", () => {
+    it("does not expose a state resource outside the server-pinned session", async () => {
+        const server = makeFakeServer();
+        registerGlobeResources(server as never, { userId: "u1", pinnedSessionId: "pinned-session" });
+        const stateCall = (server.registerResource.mock.calls as [string | { uriTemplate: string }, ...unknown[]][]).find(
+            ([uriOrTemplate]) => {
+                const value = typeof uriOrTemplate === "string" ? uriOrTemplate : uriOrTemplate.uriTemplate;
+                return value.includes("state");
+            },
+        );
+        const handler = stateCall![stateCall!.length - 1] as (
+            uri: URL,
+            params: Record<string, string>,
+        ) => Promise<{ contents: Array<{ text: string }> }>;
+
+        const result = await handler(new URL("globe://state/other-session"), { sessionId: "other-session" });
+
+        expect(mockReadState).not.toHaveBeenCalled();
+        expect(JSON.parse(result.contents[0].text)).toBeNull();
+    });
+
     it("calls readGlobeState with injected userId 'u1' and the given sessionId", async () => {
         const snapshot = {
             viewport: { lat: 37.7, lon: -122.4, altitude: 500000, heading: 0, pitch: -90, roll: 0 },

@@ -65,7 +65,9 @@ const CACHE_TTL_SECONDS = 86_400; // 24h
 async function resolveSession(
     userId: string,
     argSessionId: string | undefined,
+    pinnedSessionId?: string,
 ): Promise<string | null> {
+    if (pinnedSessionId) return pinnedSessionId;
     if (argSessionId !== undefined && argSessionId !== "") {
         return argSessionId;
     }
@@ -78,9 +80,9 @@ async function resolveSession(
 
 export function registerGeocodingTools(
     server: McpServer,
-    ctx: { userId: string },
+    ctx: { userId: string; pinnedSessionId?: string },
 ): void {
-    const { userId } = ctx;
+    const { userId, pinnedSessionId } = ctx;
 
     // GEO-01 + GEO-03: geocode_location
     server.registerTool(
@@ -161,7 +163,7 @@ export function registerGeocodingTools(
         },
         async (args) => {
             try {
-                const sessionId = await resolveSession(userId, args.sessionId);
+                const sessionId = await resolveSession(userId, args.sessionId, pinnedSessionId);
                 if (sessionId === null) return NO_SESSION_RESULT;
 
                 const cmd: GlobeCommand = {

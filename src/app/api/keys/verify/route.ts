@@ -7,14 +7,20 @@ import { getClientIp } from "@/lib/rateLimit";
 const MIN_KEY_LENGTH = 20;
 
 async function verifyGoogleMaps(key: string): Promise<{ valid: boolean; error?: string }> {
-    // Use a minimal Places Autocomplete request as a probe
-    const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=a&key=${encodeURIComponent(key)}`;
+    // Probe the API WWV actually uses for Google Photorealistic 3D Tiles.
+    // Places Autocomplete (Legacy) cannot be enabled on new Google Cloud
+    // projects and therefore rejects otherwise valid Map Tiles API keys.
+    const url = `https://tile.googleapis.com/v1/3dtiles/root.json?key=${encodeURIComponent(key)}`;
     const res = await fetch(url);
-    const data = await res.json();
-    if (data.status === "OK" || data.status === "ZERO_RESULTS") {
-        return { valid: true };
-    }
-    return { valid: false, error: data.error_message || data.status };
+    if (res.ok) return { valid: true };
+
+    const data = await res.json().catch(() => null) as {
+        error?: { message?: string; status?: string };
+    } | null;
+    return {
+        valid: false,
+        error: data?.error?.message || data?.error?.status || `Map Tiles API returned HTTP ${res.status}`,
+    };
 }
 
 async function verifyNasaFirms(key: string): Promise<{ valid: boolean; error?: string }> {

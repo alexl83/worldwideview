@@ -19,7 +19,7 @@ import { readGlobeState, readActiveSessions } from "@/lib/globeStateStore";
 
 export function registerGlobeResources(
     server: McpServer,
-    { userId }: { userId: string },
+    { userId, pinnedSessionId }: { userId: string; pinnedSessionId?: string },
 ): void {
     // RSRC-02: globe://state/{sessionId}
     // Returns the full GlobeStateSnapshot for the given session.
@@ -30,7 +30,9 @@ export function registerGlobeResources(
         { description: "Full GlobeStateSnapshot for a specific session" },
         async (uri, variables) => {
             const sessionId = String(variables["sessionId"] ?? "");
-            const snapshot = await readGlobeState(userId, sessionId);
+            const snapshot = pinnedSessionId && sessionId !== pinnedSessionId
+                ? null
+                : await readGlobeState(userId, sessionId);
             return {
                 contents: [
                     {
@@ -50,7 +52,9 @@ export function registerGlobeResources(
         "globe://sessions",
         { description: "Active globe sessions for the authenticated user" },
         async (uri) => {
-            const sessions = await readActiveSessions(userId);
+            const sessions = pinnedSessionId
+                ? [{ sessionId: pinnedSessionId, lastSeen: Date.now() }]
+                : await readActiveSessions(userId);
             return {
                 contents: [
                     {
@@ -71,7 +75,9 @@ export function registerGlobeResources(
         "globe://layers",
         { description: "Active layer map from the most-recent globe session" },
         async (uri) => {
-            const sessions = await readActiveSessions(userId);
+            const sessions = pinnedSessionId
+                ? [{ sessionId: pinnedSessionId, lastSeen: Date.now() }]
+                : await readActiveSessions(userId);
             if (sessions.length === 0) {
                 return {
                     contents: [

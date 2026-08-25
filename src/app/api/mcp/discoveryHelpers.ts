@@ -236,9 +236,11 @@ export interface GlobeContextPayload {
  * Composes a full globe context snapshot for get_globe_context.
  * Never throws -- all sub-calls are best-effort; missing data falls back to nulls/empty.
  */
-export async function composeGlobeContext(userId: string): Promise<GlobeContextPayload> {
+export async function composeGlobeContext(userId: string, pinnedSessionId?: string): Promise<GlobeContextPayload> {
     const [sessions, pluginsResult] = await Promise.all([
-        readActiveSessions(userId),
+        pinnedSessionId
+            ? Promise.resolve([{ sessionId: pinnedSessionId, lastSeen: Date.now() }])
+            : readActiveSessions(userId),
         listStreamingPlugins(),
     ]);
 

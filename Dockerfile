@@ -99,6 +99,10 @@ ENV PORT=3000
 # Example: postgresql://user:pass@host:5432/dbname
 ENV AUTH_TRUST_HOST=true
 
+# Keep the large, mostly invariant dependency layer before application output.
+# This lets ARM64 deploys transfer only changed app layers via the local registry.
+COPY --from=builder /app/prod/node_modules ./node_modules
+
 # Copy Prisma schema + migrations for runtime DB init
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
@@ -108,9 +112,6 @@ COPY --from=builder /app/src/generated ./src/generated
 
 # Copy standalone server output
 COPY --from=builder /app/.next/standalone ./
-
-# Copy deployed production node_modules
-COPY --from=builder /app/prod/node_modules ./node_modules
 
 # We no longer copy proddeps/node_modules. Next.js standalone output
 # already traces and copies all the exact node_modules needed for production.

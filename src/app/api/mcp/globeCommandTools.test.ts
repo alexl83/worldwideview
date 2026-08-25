@@ -100,6 +100,23 @@ describe("registerGlobeCommandTools registration (TOOL-01)", () => {
 // ---------------------------------------------------------------------------
 
 describe("pan_globe handler (TOOL-02)", () => {
+    it("always uses the server-pinned session instead of a tool-supplied session", async () => {
+        const { server, tools } = makeFakeServer();
+        registerGlobeCommandTools(
+            server as unknown as import("@modelcontextprotocol/sdk/server/mcp.js").McpServer,
+            { userId: "u1", pinnedSessionId: "pinned-session" },
+        );
+
+        await tools.get("pan_globe")!({ lat: 1, lon: 2, alt: 3, sessionId: "other-session" });
+
+        expect(mockResolveSessionId).not.toHaveBeenCalled();
+        expect(mockEnqueue).toHaveBeenCalledWith(
+            "u1",
+            "pinned-session",
+            expect.objectContaining({ type: "pan" }),
+        );
+    });
+
     it("calls enqueueGlobeCommand with userId, sessionId, and pan GlobeCommand", async () => {
         const { server, tools } = makeFakeServer();
         registerGlobeCommandTools(server as unknown as import("@modelcontextprotocol/sdk/server/mcp.js").McpServer, { userId: "u1" });
